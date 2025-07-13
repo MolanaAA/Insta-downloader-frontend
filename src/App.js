@@ -8,16 +8,16 @@ function App() {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [downloadUrl, setDownloadUrl] = useState('');
-  const [downloadedFilename, setDownloadedFilename] = useState('');
+  const [cloudinaryUrl, setCloudinaryUrl] = useState('');
+  const [videoInfo, setVideoInfo] = useState(null);
 
   // Efficiently reset all download-related state
   const resetDownloadState = useCallback(() => {
     setMessage('');
     setMessageType('');
     setSuggestions([]);
-    setDownloadUrl('');
-    setDownloadedFilename('');
+    setCloudinaryUrl('');
+    setVideoInfo(null);
   }, []);
 
   // Efficiently show messages and handle suggestions
@@ -57,18 +57,27 @@ function App() {
     resetDownloadState();
 
     try {
-      const response = await axios.post('/api/download', { url });
+      // Use Puppeteer endpoint for better session handling with Instagram CDN
+      const response = await axios.post('/api/download-puppeteer', { url });
       if (response.data.success) {
-        showMessage(`Video downloaded successfully! Filename: ${response.data.filename}`, 'success');
+        showMessage('Video extracted and uploaded to Cloudinary successfully!', 'success');
         setUrl('');
-        setDownloadUrl(response.data.downloadUrl);
-        setDownloadedFilename(response.data.filename);
+        setCloudinaryUrl(response.data.cloudinaryUrl);
+        setVideoInfo({
+          cloudinaryId: response.data.cloudinaryId,
+          format: response.data.format,
+          duration: response.data.duration,
+          size: response.data.size,
+          dimensions: response.data.dimensions,
+          createdAt: response.data.createdAt,
+          extractionMethod: response.data.extractionMethod
+        });
       } else {
-        showMessage('Failed to download video', 'error');
+        showMessage('Failed to process video', 'error');
       }
     } catch (error) {
       console.error('Download error:', error);
-      const errorMessage = error.response?.data?.error || 'An error occurred while downloading the video';
+      const errorMessage = error.response?.data?.error || 'An error occurred while processing the video';
       const errorSuggestions = error.response?.data?.suggestions || [];
       showMessage(errorMessage, 'error', errorSuggestions);
     } finally {
@@ -112,12 +121,12 @@ function App() {
               {loading ? (
                 <>
                   <span className="spinner"></span>
-                  Downloading...
+                  Processing...
                 </>
               ) : (
                 <>
-                  <span className="download-icon">⬇️</span>
-                  Download Reel
+                  <span className="download-icon">☁️</span>
+                  Process & Upload
                 </>
               )}
             </button>
@@ -129,18 +138,35 @@ function App() {
             </div>
           )}
 
-          {downloadUrl && (
+          {cloudinaryUrl && (
             <div className="download-link-section">
-              <h4>Download Your Video:</h4>
+              <h4>✅ Video Successfully Uploaded to Cloudinary!</h4>
+              <div className="video-info">
+                <p><strong>Cloudinary ID:</strong> {videoInfo?.cloudinaryId}</p>
+                <p><strong>Extraction Method:</strong> {videoInfo?.extractionMethod}</p>
+                <p><strong>Format:</strong> {videoInfo?.format}</p>
+                <p><strong>Duration:</strong> {videoInfo?.duration} seconds</p>
+                <p><strong>Size:</strong> {(videoInfo?.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p><strong>Dimensions:</strong> {videoInfo?.dimensions?.width} x {videoInfo?.dimensions?.height}</p>
+                <p><strong>Uploaded:</strong> {new Date(videoInfo?.createdAt).toLocaleString()}</p>
+              </div>
               <a 
-                href={downloadUrl} 
-                download={downloadedFilename}
+                href={cloudinaryUrl} 
+                target="_blank"
+                rel="noopener noreferrer"
                 className="download-link-btn"
               >
-                📥 Download {downloadedFilename}
+                🌐 View Video on Cloudinary
+              </a>
+              <a 
+                href={cloudinaryUrl} 
+                download={`${videoInfo?.cloudinaryId}.${videoInfo?.format}`}
+                className="download-link-btn secondary"
+              >
+                📥 Download Video
               </a>
               <p className="download-note">
-                Click the link above to download the video to your computer
+                Your video has been uploaded to Cloudinary and is now accessible online
               </p>
             </div>
           )}
@@ -159,11 +185,11 @@ function App() {
           <div className="instructions">
             <h3>How to use:</h3>
             <ol>
-              <li>Copy the URL of the Instagram reel you want to download</li>
+              <li>Copy the URL of the Instagram reel you want to process</li>
               <li>Paste it in the input field above</li>
               <li>Click "Download Reel"</li>
-              <li>The video will be processed and a download button will appear</li>
-              <li>Click the download button to save the video to your computer</li>
+              <li>The video will be extracted and uploaded to Cloudinary</li>
+              <li>View or download the video from the provided Cloudinary link</li>
             </ol>
             
             <div className="note">
